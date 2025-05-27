@@ -13,6 +13,7 @@ from nltk.tokenize import word_tokenize
 import nltk
 from gensim.scripts.glove2word2vec import glove2word2vec
 from utilslib import generate_box_plot, preprocess_text
+import matplotlib.pyplot as plt
 
 class RougeMetric:
     def __init__(self) -> None:
@@ -352,6 +353,49 @@ class WordEmbeddingsModel:
         print(self.wordEmbeddingsModel)
         generate_box_plot(df['WordEmbeddingSimilarity'], xlabel = self.wordEmbeddingsModelName + " Scale", ylabel =  self.wordEmbeddingsModelName + " values", box_color = "orange")
 
+class ComparativeRougeLsum:
+    def __init__(self):
+        """ Initializes the Rouge evaluation metric. """
+        self.rouge = load('rouge')
+
+    def extract_rouge_lsum(self, df):
+        """ Extracts ROUGE-Lsum scores from a DataFrame containing 'Generated Text' and 'Reference Text'. """
+        scores = self.rouge.compute(predictions=df['Generated Text'].tolist(), references=df['Reference Text'].tolist(), rouge_types=["rougeLsum"])
+        rouge_lsum_scores = [score['rougeLsum'].mid.fmeasure for score in scores]
+        return rouge_lsum_scores
+
+    def generate_boxplot_for_bits(self, bit_data, labels):
+        """ Generates a box plot for the different bit configurations.
+
+        Params:
+            bit_data (list of list): A list containing ROUGE-Lsum scores for each bit configuration.
+            labels (list): A list of labels for each bit configuration.
+        """
+        plt.figure(figsize=(10, 6))
+        plt.boxplot(bit_data, labels=labels, patch_artist=True,
+                    boxprops=dict(facecolor='lightblue', color='black'),
+                    medianprops=dict(color='black'),
+                    whiskerprops=dict(color='black'),
+                    capprops=dict(color='black'),
+                    flierprops=dict(marker='o', color='black', alpha=0.5))
+        plt.title('ROUGE-Lsum Distribution Across Bit Configurations')
+        plt.ylabel('ROUGE-Lsum Scores')
+        plt.grid(True)
+        plt.show()
+
+    def analyze(self, df_4bit, df_5bit, df_8bit):
+        """ Analyzes the provided DataFrames and generates a comparative box plot.
+
+        Params:
+            df_4bit (DataFrame): DataFrame for 4-bit data.
+            df_5bit (DataFrame): DataFrame for 5-bit data.
+            df_8bit (DataFrame): DataFrame for 8-bit data.
+        """
+        rouge_lsum_4bit = self.extract_rouge_lsum(df_4bit)
+        rouge_lsum_5bit = self.extract_rouge_lsum(df_5bit)
+        rouge_lsum_8bit = self.extract_rouge_lsum(df_8bit)
+
+        self.generate_boxplot_for_bits([rouge_lsum_4bit, rouge_lsum_5bit, rouge_lsum_8bit], ['4-bit', '5-bit', '8-bit'])
 class Metrics:
     def getAllMetrics(self, df: pd.DataFrame) -> None:
         """ This function is used to generate mertics for a dataframe containing reference and generated text using 
@@ -376,4 +420,9 @@ class Metrics:
         for wordEmbeddingModelName in WordEmbeddingModels:
             wordEmbeddingModel = WordEmbeddingsModel(wordEmbeddingModelName)
             wordEmbeddingModel.getWordEmbeddings(df)
+
+class CombinedMetrics:
+    def getAllMetrics(self, df_4bit: pd.DataFrame, df_5bit: pd.DataFrame,df_8bit: pd.DataFrame, ) -> None:
+        comparativerougeLsum = ComparativeRougeLsum ()
+        comparativerougeLsum.analyze(df_4bit, df_5bit, df_8bit) 
 
